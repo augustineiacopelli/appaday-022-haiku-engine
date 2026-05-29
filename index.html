@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haiku Engine · App 022</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Cormorant+SC:wght@300;400;500&family=Noto+Serif+JP:wght@200;300;400&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: #1a1714;
+    --ink-strong: #0e0c0a;
+    --paper: #f5f0e8;
+    --paper-deep: #ede7d9;
+    --brush: #2c1810;
+    --red: #c0392b;
+    --label: #4a3f36;
+    --secondary: #6b5a4e;
+    --muted: #8a7060;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Cormorant Garamond', 'Noto Serif JP', Georgia, serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg, transparent, transparent 28px,
+      rgba(26,23,20,0.03) 28px, rgba(26,23,20,0.03) 29px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--brush), var(--red), var(--brush));
+    z-index: 100;
+  }
+
+  /* ── Header ── */
+  header {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 2rem 0;
+  }
+
+  .app-num {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    color: var(--secondary);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .back-link {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    color: var(--secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--red); }
+
+  /* Settings gear button */
+  .settings-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, transform 0.4s;
+    line-height: 1;
+  }
+  .settings-btn:hover { color: var(--red); }
+  .settings-btn.open { transform: rotate(45deg); color: var(--red); }
+
+  .settings-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ── Settings Panel ── */
+  .settings-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(320px, 88vw);
+    background: #f0e9da;
+    border-left: 1px solid rgba(26,23,20,0.12);
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    box-shadow: -8px 0 32px rgba(26,23,20,0.12);
+  }
+  .settings-panel.open { transform: translateX(0); }
+
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,23,20,0.3);
+    z-index: 49;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s;
+  }
+  .settings-overlay.open { opacity: 1; pointer-events: all; }
+
+  .settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 1.75rem 1.25rem;
+    border-bottom: 1px solid rgba(26,23,20,0.1);
+  }
+
+  .settings-title {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    color: var(--brush);
+    text-transform: uppercase;
+  }
+
+  .settings-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--secondary);
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .settings-close:hover { color: var(--red); }
+
+  .settings-body {
+    flex: 1;
+    padding: 1.75rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .settings-group {}
+  .settings-group-label {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    color: var(--label);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+
+  .settings-input {
+    width: 100%;
+    background: rgba(26,23,20,0.04);
+    border: 1px solid rgba(26,23,20,0.15);
+    border-radius: 2px;
+    outline: none;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--ink-strong);
+    padding: 0.65rem 0.85rem;
+    letter-spacing: 0.03em;
+    transition: border-color 0.2s;
+  }
+  .settings-input:focus { border-color: var(--brush); }
+  .settings-input::placeholder {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .settings-hint {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: var(--secondary);
+    margin-top: 0.5rem;
+    line-height: 1.5;
+  }
+
+  .settings-save-btn {
+    width: 100%;
+    padding: 0.85rem;
+    background: var(--brush);
+    color: var(--paper);
+    border: none;
+    cursor: pointer;
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    font-weight: 400;
+    transition: background 0.2s;
+    margin-top: auto;
+  }
+  .settings-save-btn:hover { background: var(--red); }
+
+  /* ── Main ── */
+  main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1.5rem 4rem;
+    max-width: 680px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .title-block {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .jp-title {
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 200;
+    font-size: 1.1rem;
+    letter-spacing: 0.5em;
+    color: var(--secondary);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  h1 {
+    font-family: 'Cormorant SC', serif;
+    font-size: clamp(2rem, 6vw, 3rem);
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    color: var(--brush);
+    line-height: 1;
+  }
+
+  .title-line {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--red), transparent);
+    margin: 1rem auto 0;
+  }
+
+  /* ── Input ── */
+  .input-section {
+    width: 100%;
+    margin-bottom: 2.5rem;
+  }
+
+  .input-label {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    color: var(--label);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+
+  .input-row {
+    display: flex;
+    border-bottom: 1.5px solid var(--ink);
+    align-items: center;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.3rem;
+    font-weight: 400;
+    color: var(--ink-strong);
+    padding: 0.6rem 0;
+    letter-spacing: 0.02em;
+  }
+
+  input[type="text"]::placeholder {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ── Generate button ── */
+  .generate-btn {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    background: var(--brush);
+    color: var(--paper);
+    border: none;
+    cursor: pointer;
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.35em;
+    font-weight: 400;
+    transition: background 0.3s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .generate-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--red);
+    transform: translateX(-100%);
+    transition: transform 0.4s ease;
+  }
+  .generate-btn:hover::before { transform: translateX(0); }
+  .generate-btn span { position: relative; z-index: 1; }
+  .generate-btn:active { transform: scale(0.98); }
+  .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Output area ── */
+  .output-area {
+    width: 100%;
+    margin-top: 3.5rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .output-area.visible { opacity: 1; transform: translateY(0); }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  .divider-line { flex: 1; height: 1px; background: rgba(26,23,20,0.18); }
+  .divider-mark { font-family: 'Noto Serif JP', serif; font-size: 1rem; color: var(--red); font-weight: 200; }
+
+  .topic-echo {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    color: var(--label);
+    text-align: center;
+    margin-bottom: 2rem;
+    text-transform: uppercase;
+  }
+
+  .haiku-container {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    position: relative;
+  }
+  .haiku-container::before {
+    content: '';
+    position: absolute;
+    left: -1.5rem;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, transparent, var(--red) 30%, var(--red) 70%, transparent);
+    opacity: 0.35;
+  }
+
+  .haiku-lines { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1.5rem; }
+
+  .haiku-line {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.35rem, 4.5vw, 1.75rem);
+    font-weight: 300;
+    font-style: italic;
+    color: var(--brush);
+    line-height: 1.65;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .haiku-line.show { opacity: 1; transform: translateY(0); }
+  .haiku-line:nth-child(1) { transition-delay: 0.1s; }
+  .haiku-line:nth-child(2) { transition-delay: 0.35s; }
+  .haiku-line:nth-child(3) { transition-delay: 0.6s; }
+
+  .syllable-count {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--secondary);
+    font-weight: 400;
+  }
+
+  .commentary-label {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--label);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    display: block;
+    font-weight: 500;
+  }
+
+  .commentary {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem;
+    font-weight: 400;
+    line-height: 1.85;
+    color: var(--secondary);
+    border-left: 1px solid rgba(26,23,20,0.18);
+    padding-left: 1.25rem;
+  }
+
+  /* ── Action buttons row ── */
+  .action-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2.25rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    background: none;
+    border: 1px solid rgba(26,23,20,0.25);
+    cursor: pointer;
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    color: var(--label);
+    text-transform: uppercase;
+    padding: 0.65rem 1.35rem;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    font-weight: 400;
+  }
+  .action-btn:hover { border-color: var(--red); color: var(--red); }
+  .action-btn.primary {
+    background: var(--brush);
+    border-color: var(--brush);
+    color: var(--paper);
+  }
+  .action-btn.primary:hover { background: var(--red); border-color: var(--red); color: var(--paper); }
+
+  /* ── Email modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,23,20,0.45);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: #f0e9da;
+    border: 1px solid rgba(26,23,20,0.12);
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+    transform: translateY(12px);
+    transition: transform 0.25s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-title {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    color: var(--brush);
+    margin-bottom: 1.5rem;
+    display: block;
+  }
+
+  .modal-haiku-preview {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--brush);
+    line-height: 1.8;
+    text-align: center;
+    margin-bottom: 1.75rem;
+    padding: 1rem;
+    border: 1px solid rgba(26,23,20,0.1);
+    background: rgba(26,23,20,0.02);
+  }
+
+  .modal-label {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    color: var(--label);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .modal-input {
+    width: 100%;
+    background: rgba(26,23,20,0.04);
+    border: 1px solid rgba(26,23,20,0.15);
+    border-radius: 2px;
+    outline: none;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--ink-strong);
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 1.5rem;
+    transition: border-color 0.2s;
+  }
+  .modal-input:focus { border-color: var(--brush); }
+  .modal-input::placeholder { color: var(--muted); font-style: italic; }
+
+  .modal-actions { display: flex; gap: 0.75rem; }
+  .modal-actions .action-btn { flex: 1; text-align: center; }
+
+  .modal-success {
+    display: none;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--brush);
+    padding: 1rem 0;
+  }
+  .modal-success.show { display: block; }
+
+  /* ── Loading ── */
+  .loading-indicator {
+    text-align: center;
+    padding: 2rem 0;
+    display: none;
+  }
+  .loading-indicator.active { display: block; }
+
+  .brush-strokes { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1rem; }
+
+  .brush-dot {
+    width: 4px;
+    height: 24px;
+    background: var(--brush);
+    border-radius: 2px;
+    animation: brushPulse 1.2s ease-in-out infinite;
+    transform-origin: bottom;
+  }
+  .brush-dot:nth-child(1) { animation-delay: 0s; }
+  .brush-dot:nth-child(2) { animation-delay: 0.2s; height: 16px; }
+  .brush-dot:nth-child(3) { animation-delay: 0.4s; height: 20px; }
+  .brush-dot:nth-child(4) { animation-delay: 0.6s; height: 12px; }
+  .brush-dot:nth-child(5) { animation-delay: 0.8s; height: 18px; }
+
+  @keyframes brushPulse {
+    0%, 100% { opacity: 0.2; transform: scaleY(0.6); }
+    50% { opacity: 1; transform: scaleY(1); }
+  }
+
+  .loading-text {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--label);
+    font-weight: 400;
+  }
+
+  /* ── Error ── */
+  .error-msg {
+    display: none;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.95rem;
+    font-style: italic;
+    color: var(--red);
+    padding: 1.5rem;
+    border: 1px solid rgba(192,57,43,0.2);
+    background: rgba(192,57,43,0.04);
+    margin-top: 1.5rem;
+    width: 100%;
+  }
+  .error-msg.active { display: block; }
+
+  /* ── Responsive ── */
+  @media (max-width: 480px) {
+    header { padding: 1.5rem 1.25rem 0; }
+    main { padding: 2rem 1.25rem 3rem; }
+    .haiku-container::before { display: none; }
+    .action-row { flex-direction: column; align-items: center; }
+    .action-btn { width: 100%; max-width: 280px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Settings overlay -->
+<div class="settings-overlay" id="settingsOverlay"></div>
+
+<!-- Settings panel -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-header">
+    <span class="settings-title">Settings</span>
+    <button class="settings-close" id="settingsClose" type="button">Close</button>
+  </div>
+  <div class="settings-body">
+    <div class="settings-group">
+      <span class="settings-group-label">Anthropic API Key</span>
+      <input type="password" class="settings-input" id="apiKeyInput" placeholder="sk-ant-…" autocomplete="off">
+      <p class="settings-hint">Your key is stored in session memory only and never sent anywhere except Anthropic's API.</p>
+    </div>
+    <div class="settings-group">
+      <span class="settings-group-label">Default Email</span>
+      <input type="email" class="settings-input" id="defaultEmailInput" placeholder="you@example.com" autocomplete="off">
+      <p class="settings-hint">Pre-fills the send field when you email a haiku.</p>
+    </div>
+  </div>
+  <div style="padding: 1.5rem 1.75rem;">
+    <button class="settings-save-btn" id="settingsSaveBtn" type="button">Save Settings</button>
+  </div>
+</div>
+
+<!-- Email modal -->
+<div class="modal-overlay" id="emailModal">
+  <div class="modal">
+    <span class="modal-title">Send This Haiku</span>
+    <div class="modal-haiku-preview" id="modalHaikuPreview"></div>
+    <label class="modal-label" for="modalEmailInput">Recipient</label>
+    <input type="email" class="modal-input" id="modalEmailInput" placeholder="friend@example.com">
+    <div class="modal-actions">
+      <button class="action-btn" id="modalCancelBtn" type="button">Cancel</button>
+      <button class="action-btn primary" id="modalSendBtn" type="button">Send</button>
+    </div>
+    <div class="modal-success" id="modalSuccess">Haiku sent. ✦</div>
+  </div>
+</div>
+
+<header>
+  <span class="app-num">App 022 · A</span>
+  <div class="header-right">
+    <a href="https://augustineiacopelli.github.io" class="back-link">← Portfolio</a>
+    <button class="settings-btn" id="settingsBtn" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="title-block">
+    <span class="jp-title">俳句</span>
+    <h1>Haiku Engine</h1>
+    <div class="title-line"></div>
+  </div>
+
+  <div class="input-section">
+    <label class="input-label" for="topicInput">Topic or mood</label>
+    <div class="input-row">
+      <input
+        type="text"
+        id="topicInput"
+        placeholder="morning fog, grief, a cup of coffee…"
+        maxlength="100"
+        autocomplete="off"
+      >
+    </div>
+  </div>
+
+  <button class="generate-btn" id="generateBtn" type="button">
+    <span>Compose</span>
+  </button>
+
+  <div class="loading-indicator" id="loadingIndicator">
+    <div class="brush-strokes">
+      <div class="brush-dot"></div>
+      <div class="brush-dot"></div>
+      <div class="brush-dot"></div>
+      <div class="brush-dot"></div>
+      <div class="brush-dot"></div>
+    </div>
+    <div class="loading-text">Writing…</div>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="output-area" id="outputArea">
+    <div class="divider">
+      <div class="divider-line"></div>
+      <div class="divider-mark">●</div>
+      <div class="divider-line"></div>
+    </div>
+
+    <div class="topic-echo" id="topicEcho"></div>
+
+    <div class="haiku-container">
+      <div class="haiku-lines">
+        <div class="haiku-line" id="line1"></div>
+        <div class="haiku-line" id="line2"></div>
+        <div class="haiku-line" id="line3"></div>
+      </div>
+      <div class="syllable-count">5 · 7 · 5</div>
+    </div>
+
+    <span class="commentary-label">On the imagery</span>
+    <p class="commentary" id="commentary"></p>
+
+    <div class="action-row">
+      <button class="action-btn" id="emailBtn" type="button">✉ Send by Email</button>
+      <button class="action-btn" id="newBtn" type="button">Compose Another</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  // ── Element refs ──
+  const topicInput     = document.getElementById('topicInput');
+  const apiKeyInput    = document.getElementById('apiKeyInput');
+  const defaultEmailInput = document.getElementById('defaultEmailInput');
+  const generateBtn    = document.getElementById('generateBtn');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  const errorMsg       = document.getElementById('errorMsg');
+  const outputArea     = document.getElementById('outputArea');
+  const topicEcho      = document.getElementById('topicEcho');
+  const line1          = document.getElementById('line1');
+  const line2          = document.getElementById('line2');
+  const line3          = document.getElementById('line3');
+  const commentary     = document.getElementById('commentary');
+  const newBtn         = document.getElementById('newBtn');
+  const emailBtn       = document.getElementById('emailBtn');
+
+  // Settings
+  const settingsBtn    = document.getElementById('settingsBtn');
+  const settingsPanel  = document.getElementById('settingsPanel');
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  const settingsClose  = document.getElementById('settingsClose');
+  const settingsSaveBtn = document.getElementById('settingsSaveBtn');
+
+  // Email modal
+  const emailModal     = document.getElementById('emailModal');
+  const modalHaikuPreview = document.getElementById('modalHaikuPreview');
+  const modalEmailInput = document.getElementById('modalEmailInput');
+  const modalCancelBtn = document.getElementById('modalCancelBtn');
+  const modalSendBtn   = document.getElementById('modalSendBtn');
+  const modalSuccess   = document.getElementById('modalSuccess');
+
+  // ── Session state ──
+  let currentHaiku = null;
+
+  // ── Load stored prefs ──
+  const storedKey   = localStorage.getItem('haiku_api_key');
+  const storedEmail = localStorage.getItem('haiku_default_email');
+  if (storedKey)   apiKeyInput.value   = storedKey;
+  if (storedEmail) defaultEmailInput.value = storedEmail;
+
+
+
+  // ── Settings panel ──
+  function openSettings() {
+    settingsPanel.classList.add('open');
+    settingsOverlay.classList.add('open');
+    settingsBtn.classList.add('open');
+  }
+  function closeSettings() {
+    settingsPanel.classList.remove('open');
+    settingsOverlay.classList.remove('open');
+    settingsBtn.classList.remove('open');
+  }
+
+  settingsBtn.addEventListener('click', () => {
+    settingsPanel.classList.contains('open') ? closeSettings() : openSettings();
+  });
+  settingsClose.addEventListener('click', closeSettings);
+  settingsOverlay.addEventListener('click', closeSettings);
+
+  settingsSaveBtn.addEventListener('click', () => {
+    const key = apiKeyInput.value.trim();
+    const email = defaultEmailInput.value.trim();
+    if (key)   localStorage.setItem('haiku_api_key', key);
+    if (email) localStorage.setItem('haiku_default_email', email);
+    settingsSaveBtn.textContent = 'Saved ✦';
+    setTimeout(() => { settingsSaveBtn.textContent = 'Save Settings'; closeSettings(); }, 900);
+  });
+
+  // ── Email modal ──
+  function openEmailModal() {
+    if (!currentHaiku) return;
+    modalHaikuPreview.innerHTML =
+      `${currentHaiku.line1}<br>${currentHaiku.line2}<br>${currentHaiku.line3}`;
+    const saved = localStorage.getItem('haiku_default_email') || '';
+    modalEmailInput.value = saved;
+    modalSuccess.classList.remove('show');
+    modalSendBtn.style.display = '';
+    modalCancelBtn.textContent = 'Cancel';
+    emailModal.classList.add('open');
+    setTimeout(() => modalEmailInput.focus(), 300);
+  }
+
+  function closeEmailModal() {
+    emailModal.classList.remove('open');
+  }
+
+  emailBtn.addEventListener('click', openEmailModal);
+  modalCancelBtn.addEventListener('click', closeEmailModal);
+  emailModal.addEventListener('click', (e) => { if (e.target === emailModal) closeEmailModal(); });
+
+  modalSendBtn.addEventListener('click', () => {
+    const to = modalEmailInput.value.trim();
+    if (!to || !to.includes('@')) {
+      modalEmailInput.style.borderColor = 'var(--red)';
+      setTimeout(() => modalEmailInput.style.borderColor = '', 1500);
+      return;
+    }
+
+    const topic = topicEcho.textContent;
+    const subject = encodeURIComponent(`A haiku on: ${topic}`);
+    const body = encodeURIComponent(
+      `${currentHaiku.line1}\n${currentHaiku.line2}\n${currentHaiku.line3}\n\n— Haiku Engine`
+    );
+    const mailto = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}`;
+    window.location.href = mailto;
+
+    modalSuccess.classList.add('show');
+    modalSendBtn.style.display = 'none';
+    modalCancelBtn.textContent = 'Close';
+  });
+
+  // ── Generate ──
+  topicInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') generate(); });
+  generateBtn.addEventListener('click', generate);
+
+  newBtn.addEventListener('click', () => {
+    outputArea.classList.remove('visible');
+    topicInput.value = '';
+    topicInput.focus();
+    setTimeout(() => [line1, line2, line3].forEach(l => l.classList.remove('show')), 300);
+  });
+
+  async function generate() {
+    const topic  = topicInput.value.trim();
+    const apiKey = localStorage.getItem('haiku_api_key') || apiKeyInput.value.trim();
+
+    if (!topic) {
+      topicInput.focus();
+      topicInput.style.borderBottom = '1.5px solid var(--red)';
+      setTimeout(() => topicInput.style.borderBottom = '', 1500);
+      return;
+    }
+
+    if (!apiKey) {
+      openSettings();
+      return;
+    }
+
+    generateBtn.disabled = true;
+    outputArea.classList.remove('visible');
+    errorMsg.classList.remove('active');
+    loadingIndicator.classList.add('active');
+    [line1, line2, line3].forEach(l => l.classList.remove('show'));
+
+    const prompt = `You are a master haiku poet. Compose an original haiku on the topic or mood: "${topic}"
+
+Requirements:
+- Strict 5-7-5 syllable structure
+- Evocative, concrete imagery — no abstractions
+- Traditional haiku sensibility: a moment, a juxtaposition, seasonal or natural resonance where fitting
+- No rhyme forced
+- Then write 2-3 sentences explaining the specific imagery choices and what they evoke
+
+Respond ONLY with valid JSON, no markdown, no preamble:
+{
+  "line1": "first line here",
+  "line2": "second line here",
+  "line3": "third line here",
+  "commentary": "Your explanation of the imagery here."
+}`;
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || `API error ${response.status}`);
+      }
+
+      const data   = await response.json();
+      const raw    = data.content[0].text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(raw);
+
+      currentHaiku = parsed;
+
+      line1.textContent      = parsed.line1;
+      line2.textContent      = parsed.line2;
+      line3.textContent      = parsed.line3;
+      commentary.textContent = parsed.commentary;
+      topicEcho.textContent  = topic;
+
+      loadingIndicator.classList.remove('active');
+      outputArea.classList.add('visible');
+
+      setTimeout(() => line1.classList.add('show'), 200);
+      setTimeout(() => line2.classList.add('show'), 450);
+      setTimeout(() => line3.classList.add('show'), 700);
+
+    } catch (err) {
+      loadingIndicator.classList.remove('active');
+      errorMsg.textContent = err.message.includes('API key')
+        ? 'Invalid API key. Open settings and check your key.'
+        : `Something went wrong: ${err.message}`;
+      errorMsg.classList.add('active');
+    } finally {
+      generateBtn.disabled = false;
+    }
+  }
+</script>
+
+</body>
+</html>
