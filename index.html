@@ -944,7 +944,12 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       const text   = data.content[0].text;
       const match  = text.match(/\{[\s\S]*\}/);
       if (!match) throw new Error('Could not parse response from Claude.');
-      const parsed = JSON.parse(match[0]);
+      let parsed;
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch (jsonErr) {
+        throw new Error('Raw response: ' + match[0].substring(0, 300));
+      }
 
       currentHaiku = parsed;
 
