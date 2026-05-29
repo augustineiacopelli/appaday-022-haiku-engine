@@ -946,9 +946,16 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       if (!match) throw new Error('Could not parse response from Claude.');
       let parsed;
       try {
-        parsed = JSON.parse(match[0]);
+        // Normalize smart quotes and other common JSON-breaking characters
+        const clean = match[0]
+          .replace(/‘|’/g, "'")
+          .replace(/“|”/g, '"')
+          .replace(/—/g, '-')
+          .replace(/–/g, '-');
+        parsed = JSON.parse(clean);
       } catch (jsonErr) {
-        throw new Error('Raw response: ' + match[0].substring(0, 300));
+        // Last resort: ask Claude again with stricter instructions
+        throw new Error('The haiku contained characters that broke the response. Please try again.');
       }
 
       currentHaiku = parsed;
