@@ -946,16 +946,25 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       if (!match) throw new Error('Could not parse response from Claude.');
       let parsed;
       try {
-        // Normalize smart quotes and other common JSON-breaking characters
+        // Normalize smart/curly quotes and dashes before parsing
         const clean = match[0]
-          .replace(/‘|’/g, "'")
-          .replace(/“|”/g, '"')
-          .replace(/—/g, '-')
-          .replace(/–/g, '-');
+          .replace(/[‘’]/g, "'")
+          .replace(/[“”]/g, '\"')
+          .replace(/[—–]/g, '-');
         parsed = JSON.parse(clean);
       } catch (jsonErr) {
-        // Last resort: ask Claude again with stricter instructions
-        throw new Error('The haiku contained characters that broke the response. Please try again.');
+        // Fallback: extract field values directly with regex, bypassing JSON.parse entirely
+        const extract = (key) => {
+          const m = match[0].match(new RegExp('"' + key + '"\s*:\s*"([\s\S]*?)"\s*[,}]'));
+          return m ? m[1].replace(/\"/g, '"') : '';
+        };
+        parsed = {
+          line1: extract('line1'),
+          line2: extract('line2'),
+          line3: extract('line3'),
+          commentary: extract('commentary')
+        };
+        if (!parsed.line1) throw new Error('Could not read the haiku response. Please try again.');
       }
 
       currentHaiku = parsed;
