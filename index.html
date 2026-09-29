@@ -992,8 +992,19 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       generateBtn.disabled = false;
     }
   }
+
+async function getModel(tier = 'sonnet') {
+  try {
+    const response = await fetch('../config.json');
+    const config = await response.json();
+    return config.models[tier];
+  } catch {
+    return 'claude-sonnet-5-5';
+  }
+}
 </script>
 
 </body>
 </html>
+
 
