@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="manifest" href="https://augustineiacopelli.github.io/appaday/manifests/022.webmanifest">
 <script src="https://augustineiacopelli.github.io/appaday/save.js" defer></script>
+<script src="https://augustineiacopelli.github.io/appaday/keys.js" data-app="022" data-legacy-key="haiku_api_key" data-accent="#A63D9E" defer></script>
 <title>Haiku Engine | AppADay 022</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -654,11 +655,7 @@
     <button class="settings-close" id="settingsClose" type="button">Close</button>
   </div>
   <div class="settings-body">
-    <div class="settings-group">
-      <span class="settings-group-label">Anthropic API Key</span>
-      <input type="password" class="settings-input" id="apiKeyInput" placeholder="sk-ant-…" autocomplete="off">
-      <p class="settings-hint">Your key is stored in session memory only and never sent anywhere except Anthropic's API.</p>
-    </div>
+    <div class="settings-group"><div id="keyMount"><p class="settings-hint">The key manager is loading. If this stays, check your connection and reload.</p></div></div>
     <div class="settings-group">
       <span class="settings-group-label">Default Email</span>
       <input type="email" class="settings-input" id="defaultEmailInput" placeholder="you@example.com" autocomplete="off">
@@ -766,7 +763,6 @@
 <script>
   // ── Element refs ──
   const topicInput     = document.getElementById('topicInput');
-  const apiKeyInput    = document.getElementById('apiKeyInput');
   const defaultEmailInput = document.getElementById('defaultEmailInput');
   const generateBtn    = document.getElementById('generateBtn');
   const loadingIndicator = document.getElementById('loadingIndicator');
@@ -799,15 +795,14 @@
   let currentHaiku = null;
 
   // ── Load stored prefs ──
-  const storedKey   = localStorage.getItem('haiku_api_key');
   const storedEmail = localStorage.getItem('haiku_default_email');
-  if (storedKey)   apiKeyInput.value   = storedKey;
   if (storedEmail) defaultEmailInput.value = storedEmail;
 
 
 
   // ── Settings panel ──
   function openSettings() {
+    if (window.AppKeys) window.AppKeys.mountSettings(document.getElementById('keyMount'));
     settingsPanel.classList.add('open');
     settingsOverlay.classList.add('open');
     settingsBtn.classList.add('open');
@@ -825,9 +820,7 @@
   settingsOverlay.addEventListener('click', closeSettings);
 
   settingsSaveBtn.addEventListener('click', () => {
-    const key = apiKeyInput.value.trim();
     const email = defaultEmailInput.value.trim();
-    if (key)   localStorage.setItem('haiku_api_key', key);
     if (email) localStorage.setItem('haiku_default_email', email);
     settingsSaveBtn.textContent = 'Saved ✦';
     setTimeout(() => { settingsSaveBtn.textContent = 'Save Settings'; closeSettings(); }, 900);
@@ -889,7 +882,6 @@
 
   async function generate() {
     const topic  = topicInput.value.trim();
-    const apiKey = localStorage.getItem('haiku_api_key') || apiKeyInput.value.trim();
 
     if (!topic) {
       topicInput.focus();
@@ -898,8 +890,10 @@
       return;
     }
 
+    const apiKey = window.AppKeys ? await window.AppKeys.get() : null;
     if (!apiKey) {
-      openSettings();
+      errorMsg.textContent = 'Add your Claude API key with the gear button to continue.';
+      errorMsg.classList.add('active');
       return;
     }
 
