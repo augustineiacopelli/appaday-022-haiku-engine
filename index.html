@@ -932,7 +932,7 @@ Respond ONLY with valid JSON, no markdown, no preamble:
         },
         body: JSON.stringify({
           model: (window.AppModels ? window.AppModels.id('sonnet') : ''),
-          max_tokens: 500,
+          max_tokens: 500, thinking: (window.AppModels && window.AppModels.thinking ? window.AppModels.thinking('sonnet') : undefined),
           messages: [{ role: 'user', content: prompt }]
         })
       });
@@ -943,7 +943,7 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       }
 
       const data   = await response.json();
-      const text   = data.content[0].text;
+      const text   = (window.AppModels && window.AppModels.text ? window.AppModels.text(data) : ((data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text;}).join('\n\n')));
       const match  = text.match(/\{[\s\S]*\}/);
       if (!match) throw new Error('Could not parse response from Claude.');
       let parsed;
